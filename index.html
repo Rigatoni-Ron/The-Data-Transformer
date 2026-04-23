@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Data Transformer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="stage">
+      <section class="viz-panel" aria-label="Data visualization">
+        <div id="vizMount"></div>
+      </section>
+
+      <section class="radial" aria-label="Visualization selector">
+        <svg class="radial-svg" viewBox="0 0 440 440" role="group">
+          <circle cx="220" cy="220" r="205" fill="#1a1c1f" stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+
+          <g id="segments"></g>
+
+          <g id="indicatorGroup">
+            <path id="indicator" d="" fill="none" stroke="#f5c842" stroke-width="4" stroke-linecap="round" opacity="0" />
+          </g>
+
+          <circle cx="220" cy="220" r="86" fill="#15171a" stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+
+          <text id="centerLabel" x="220" y="224" text-anchor="middle" class="center-text">Inspect</text>
+          <text id="centerSub" x="220" y="244" text-anchor="middle" class="center-sub">hover a slice</text>
+        </svg>
+      </section>
+    </main>
+
+    <script type="module" src="/script.js"></script>
+  </body>
+</html>
