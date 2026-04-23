@@ -1,4 +1,4 @@
-import { Activity, Zap, Target, Clock, Layers, Waves } from "lucide";
+import { Home, Search, Heart, ShoppingCart, History, Store } from "lucide";
 
 // ---------- Lucide icon serializer ----------
 
@@ -14,335 +14,241 @@ function iconToSvg(icon, { size = 22, stroke = "currentColor" } = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${children}</svg>`;
 }
 
-// ---------- Streaming data ----------
-
-function createStream({ start = 200, vol = 15, drift = 0, decay = 0.02, seedCount = 180 } = {}) {
-  const points = [];
-  let value = start;
-  const center = start;
-  let t = Date.now() - seedCount * 1000;
-
-  const step = () => {
-    value += (center - value) * decay + drift + (Math.random() - 0.5) * vol;
-    return value;
-  };
-
-  for (let i = 0; i < seedCount; i++) {
-    points.push({ time: t, value: step() });
-    t += 1000;
-  }
-
-  return {
-    points,
-    tick() {
-      points.push({ time: Date.now(), value: step() });
-      if (points.length > 600) points.shift();
-    },
-    latest() {
-      return points[points.length - 1];
-    },
-  };
+function el(tag, className, text) {
+  const n = document.createElement(tag);
+  if (className) n.className = className;
+  if (text != null) n.textContent = text;
+  return n;
 }
 
-const streamA = createStream({ start: 248, vol: 14, decay: 0.025 });
-const streamB = createStream({ start: 182, vol: 11, decay: 0.03 });
+// ---------- Mock shop data ----------
 
-setInterval(() => {
-  streamA.tick();
-  streamB.tick();
-}, 220);
-
-// ---------- Particles ----------
-
-const N = 320;
-const SPRING_K = 0.09;
-const DAMPING = 0.78;
-
-const particles = Array.from({ length: N }, (_, i) => ({
-  x: Math.random() * 800,
-  y: Math.random() * 300,
-  vx: 0,
-  vy: 0,
-  tx: 0,
-  ty: 0,
-  alpha: 0.8,
-  phase: Math.random() * Math.PI * 2,
-  group: i % 2,
-}));
-
-function updateParticles(t) {
-  for (const p of particles) {
-    const ax = (p.tx - p.x) * SPRING_K;
-    const ay = (p.ty - p.y) * SPRING_K;
-    p.vx = (p.vx + ax) * DAMPING;
-    p.vy = (p.vy + ay) * DAMPING;
-    p.x += p.vx;
-    p.y += p.vy;
-  }
-}
-
-// ---------- Layouts ----------
-
-function rangeOf(points) {
-  let min = Infinity;
-  let max = -Infinity;
-  for (const p of points) {
-    if (p.value < min) min = p.value;
-    if (p.value > max) max = p.value;
-  }
-  if (min === max) {
-    min -= 1;
-    max += 1;
-  }
-  return { min, max };
-}
-
-function sampleCurve(points, t01) {
-  const idx = t01 * (points.length - 1);
-  const i = Math.floor(idx);
-  const frac = idx - i;
-  const a = points[i];
-  const b = points[Math.min(i + 1, points.length - 1)];
-  return a.value + (b.value - a.value) * frac;
-}
-
-function layoutLine(cw, ch, time) {
-  const pts = streamA.points;
-  const { min, max } = rangeOf(pts);
-  const padX = 24;
-  const padY = 32;
-  for (let i = 0; i < N; i++) {
-    const p = particles[i];
-    const t01 = i / (N - 1);
-    const v = sampleCurve(pts, t01);
-    p.tx = padX + t01 * (cw - padX * 2);
-    p.ty = padY + (1 - (v - min) / (max - min)) * (ch - padY * 2);
-    p.alpha = 0.55 + 0.35 * t01;
-  }
-}
-
-function layoutMomentum(cw, ch, time) {
-  const pts = streamA.points;
-  const { min, max } = rangeOf(pts);
-  const padX = 24;
-  const padY = 36;
-  for (let i = 0; i < N; i++) {
-    const p = particles[i];
-    const t01 = i / (N - 1);
-    const v = sampleCurve(pts, t01);
-    const baseY = padY + (1 - (v - min) / (max - min)) * (ch - padY * 2);
-    const bob = Math.sin(time * 0.0022 + p.phase + t01 * 6) * 8;
-    p.tx = padX + t01 * (cw - padX * 2);
-    p.ty = baseY + bob;
-    p.alpha = 0.5 + 0.4 * Math.abs(Math.sin(time * 0.0015 + p.phase));
-  }
-}
-
-function layoutReference(cw, ch, time) {
-  const pts = streamA.points;
-  const { min, max } = rangeOf(pts);
-  const padX = 24;
-  const padY = 32;
-  const avg = pts.reduce((s, p) => s + p.value, 0) / pts.length;
-  const refY = padY + (1 - (avg - min) / (max - min)) * (ch - padY * 2);
-  for (let i = 0; i < N; i++) {
-    const p = particles[i];
-    const t01 = i / (N - 1);
-    if (i % 3 === 0) {
-      p.tx = padX + t01 * (cw - padX * 2);
-      p.ty = refY;
-      p.alpha = 0.4;
-    } else {
-      const v = sampleCurve(pts, t01);
-      p.tx = padX + t01 * (cw - padX * 2);
-      p.ty = padY + (1 - (v - min) / (max - min)) * (ch - padY * 2);
-      p.alpha = 0.75;
-    }
-  }
-}
-
-function layoutWindows(cw, ch, time) {
-  const pts = streamA.points;
-  const windowSize = 40;
-  const slice = pts.slice(-windowSize);
-  const { min, max } = rangeOf(slice);
-  const padX = 24;
-  const padY = 32;
-  for (let i = 0; i < N; i++) {
-    const p = particles[i];
-    const t01 = i / (N - 1);
-    const v = sampleCurve(slice, t01);
-    p.tx = padX + t01 * (cw - padX * 2);
-    p.ty = padY + (1 - (v - min) / (max - min)) * (ch - padY * 2);
-    p.alpha = 0.6 + 0.35 * t01;
-  }
-}
-
-function layoutOrderbook(cw, ch, time) {
-  const latest = streamA.latest().value;
-  const padX = 40;
-  const padY = 28;
-  const rows = 14;
-  const rowH = (ch - padY * 2) / rows;
-  const perRow = Math.floor(N / rows);
-  for (let r = 0; r < rows; r++) {
-    const rowY = padY + r * rowH + rowH / 2;
-    const isBid = r >= rows / 2;
-    const depth = 0.3 + Math.random() * 0.0 + Math.abs(Math.sin(r * 1.3 + time * 0.0005)) * 0.7;
-    const widthFrac = 0.2 + depth * 0.7;
-    for (let k = 0; k < perRow; k++) {
-      const idx = r * perRow + k;
-      if (idx >= N) break;
-      const p = particles[idx];
-      const t01 = k / (perRow - 1);
-      if (isBid) {
-        p.tx = padX + (cw / 2 - padX) * (1 - t01 * widthFrac);
-      } else {
-        p.tx = cw / 2 + (cw / 2 - padX) * (t01 * widthFrac);
-      }
-      p.ty = rowY;
-      p.alpha = 0.35 + 0.5 * depth;
-    }
-  }
-  for (let i = rows * perRow; i < N; i++) {
-    const p = particles[i];
-    p.tx = cw / 2;
-    p.ty = ch / 2;
-    p.alpha = 0;
-  }
-}
-
-function layoutMulti(cw, ch, time) {
-  const ptsA = streamA.points;
-  const ptsB = streamB.points;
-  const combined = [...ptsA.map((p) => p.value), ...ptsB.map((p) => p.value)];
-  let min = Infinity;
-  let max = -Infinity;
-  for (const v of combined) {
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
-  if (min === max) {
-    min -= 1;
-    max += 1;
-  }
-  const padX = 24;
-  const padY = 32;
-  const half = N / 2;
-  for (let i = 0; i < N; i++) {
-    const p = particles[i];
-    const group = i < half ? 0 : 1;
-    const t01 = (i % half) / (half - 1);
-    const src = group === 0 ? ptsA : ptsB;
-    const v = sampleCurve(src, t01);
-    p.group = group;
-    p.tx = padX + t01 * (cw - padX * 2);
-    p.ty = padY + (1 - (v - min) / (max - min)) * (ch - padY * 2);
-    p.alpha = group === 0 ? 0.75 : 0.5;
-  }
-}
-
-const LAYOUTS = [
-  layoutLine,
-  layoutMomentum,
-  layoutReference,
-  layoutWindows,
-  layoutOrderbook,
-  layoutMulti,
+const ORDERS = [
+  { name: "Heritage Leather Satchel", store: "Northmere Goods", price: 214, status: "Delivered" },
+  { name: "Enamel Pour-Over Kettle", store: "Kinfolk Supply", price: 88, status: "Shipped" },
+  { name: "Merino Crew Sock (3-pack)", store: "Basin & Range", price: 34, status: "Delivered" },
+  { name: "Walnut Stacking Stool", store: "Mori Workshop", price: 320, status: "Processing" },
 ];
 
-let currentVariant = 0;
+const STORES = [
+  { name: "Northmere Goods", tag: "Leather & canvas" },
+  { name: "Kinfolk Supply", tag: "Kitchen & coffee" },
+  { name: "Basin & Range", tag: "Outdoor basics" },
+  { name: "Mori Workshop", tag: "Furniture studio" },
+  { name: "Studio Vale", tag: "Ceramics" },
+  { name: "Archive Press", tag: "Stationery" },
+];
 
-// ---------- Canvas ----------
+const CART = [
+  { name: "Brass Candle Snuffer", store: "Studio Vale", price: 28, qty: 1 },
+  { name: "Olive Linen Apron", store: "Kinfolk Supply", price: 72, qty: 2 },
+  { name: "Letterpress Notebook", store: "Archive Press", price: 18, qty: 1 },
+];
 
+const FAVOURITES = [
+  { name: "Ash Cutting Board", price: 64 },
+  { name: 'Cast Iron Skillet 10"', price: 95 },
+  { name: "Wool Felt Slippers", price: 58 },
+  { name: "Rattan Pendant Shade", price: 140 },
+  { name: "Clay Planter (Terra)", price: 38 },
+  { name: "Glass Carafe", price: 48 },
+];
+
+const EXPLORE = [
+  { name: "Home & Kitchen", count: 1240 },
+  { name: "Apparel", count: 982 },
+  { name: "Stationery", count: 346 },
+  { name: "Outdoor", count: 511 },
+  { name: "Ceramics", count: 208 },
+  { name: "Vintage", count: 172 },
+];
+
+const HOME_CHIPS = [
+  "A warm oversized wool coat",
+  "Mid-century desk lamp",
+  "Linen bedsheets in sage",
+  "Gift for a foodie",
+];
+
+// ---------- Section renderers ----------
+
+function renderHome(body) {
+  const wrap = el("div", "home-wrap");
+  wrap.appendChild(el("div", "home-prompt", "What are you looking for?"));
+
+  const inputRow = el("div", "home-input-row");
+  const input = el("input", "home-input");
+  input.type = "text";
+  input.placeholder = "Describe it in your own words…";
+  inputRow.appendChild(input);
+  wrap.appendChild(inputRow);
+
+  const chips = el("div", "home-chips");
+  HOME_CHIPS.forEach((text) => {
+    const c = el("button", "home-chip", text);
+    c.type = "button";
+    c.addEventListener("click", () => {
+      input.value = text;
+      input.focus();
+    });
+    chips.appendChild(c);
+  });
+  wrap.appendChild(chips);
+  body.appendChild(wrap);
+
+  setTimeout(() => input.focus(), 40);
+}
+
+function renderExplore(body) {
+  const search = el("div", "explore-search");
+  const iconWrap = el("span", "explore-search-icon");
+  iconWrap.innerHTML = iconToSvg(Search, { size: 15, stroke: "rgba(235,240,242,0.5)" });
+  search.appendChild(iconWrap);
+  const input = el("input");
+  input.type = "text";
+  input.placeholder = "Search stores, items, creators…";
+  search.appendChild(input);
+  body.appendChild(search);
+
+  const grid = el("div", "explore-grid");
+  EXPLORE.forEach((c) => {
+    const tile = el("button", "explore-tile");
+    tile.type = "button";
+    tile.appendChild(el("span", "explore-tile-name", c.name));
+    tile.appendChild(el("span", "explore-tile-count", `${c.count.toLocaleString()} items`));
+    grid.appendChild(tile);
+  });
+  body.appendChild(grid);
+}
+
+function renderHistory(body) {
+  const list = el("div", "row-list");
+  ORDERS.forEach((o) => {
+    const row = el("div", "row-item");
+    const left = el("div", "row-left");
+    left.appendChild(el("div", "row-name", o.name));
+    left.appendChild(el("div", "row-meta", o.store));
+    const right = el("div", "row-right");
+    right.appendChild(el("div", "row-price", `$${o.price}`));
+    right.appendChild(el("div", `row-status status-${o.status.toLowerCase()}`, o.status));
+    row.appendChild(left);
+    row.appendChild(right);
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+}
+
+function renderFollowing(body) {
+  const grid = el("div", "stores-grid");
+  STORES.forEach((s) => {
+    const tile = el("div", "store-tile");
+    const initials = s.name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+    tile.appendChild(el("div", "store-monogram", initials));
+    const info = el("div", "store-info");
+    info.appendChild(el("div", "store-name", s.name));
+    info.appendChild(el("div", "store-tag", s.tag));
+    tile.appendChild(info);
+    grid.appendChild(tile);
+  });
+  body.appendChild(grid);
+}
+
+function renderCart(body) {
+  const list = el("div", "row-list");
+  let subtotal = 0;
+  CART.forEach((item) => {
+    subtotal += item.price * item.qty;
+    const row = el("div", "row-item");
+    const left = el("div", "row-left");
+    left.appendChild(el("div", "row-name", item.name));
+    left.appendChild(el("div", "row-meta", `${item.store} · qty ${item.qty}`));
+    const right = el("div", "row-right");
+    right.appendChild(el("div", "row-price", `$${item.price * item.qty}`));
+    row.appendChild(left);
+    row.appendChild(right);
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+
+  const footer = el("div", "cart-footer");
+  footer.appendChild(el("span", "cart-total-label", "Subtotal"));
+  footer.appendChild(el("span", "cart-total-value", `$${subtotal}`));
+  body.appendChild(footer);
+}
+
+function renderFavourites(body) {
+  const grid = el("div", "fav-grid");
+  FAVOURITES.forEach((f) => {
+    const tile = el("div", "fav-tile");
+    tile.appendChild(el("div", "fav-thumb"));
+    const info = el("div", "fav-info");
+    info.appendChild(el("div", "fav-name", f.name));
+    info.appendChild(el("div", "fav-price", `$${f.price}`));
+    tile.appendChild(info);
+    grid.appendChild(tile);
+  });
+  body.appendChild(grid);
+}
+
+// ---------- Variants (clockwise from 12 o'clock) ----------
+
+const VARIANTS = [
+  { icon: Home, name: "Home", sub: "describe what you want", render: renderHome, counter: null },
+  { icon: Search, name: "Explore", sub: "discover items", render: renderExplore, counter: null },
+  { icon: Heart, name: "Favourites", sub: "saved for later", render: renderFavourites, counter: FAVOURITES.length },
+  { icon: ShoppingCart, name: "Cart", sub: "ready to buy", render: renderCart, counter: CART.reduce((a, c) => a + c.qty, 0) },
+  { icon: History, name: "History", sub: "past orders", render: renderHistory, counter: ORDERS.length },
+  { icon: Store, name: "Following", sub: "stores you follow", render: renderFollowing, counter: STORES.length },
+];
+
+// ---------- Panel shell ----------
+
+const panel = document.querySelector(".viz-panel");
 const mount = document.getElementById("vizMount");
 mount.classList.add("viz-host");
+mount.innerHTML = "";
 
-const headerWrap = document.createElement("div");
-headerWrap.className = "viz-header";
-const headerTitle = document.createElement("span");
-headerTitle.className = "viz-title";
-headerTitle.textContent = "Live stream";
-const headerValue = document.createElement("span");
-headerValue.className = "viz-value";
-headerValue.textContent = "—";
+const headerWrap = el("div", "viz-header");
+const headerTitle = el("span", "viz-title", "");
+const headerValue = el("span", "viz-value", "");
 headerWrap.appendChild(headerTitle);
 headerWrap.appendChild(headerValue);
+const bodyWrap = el("div", "viz-body");
 mount.appendChild(headerWrap);
+mount.appendChild(bodyWrap);
 
-const canvasWrap = document.createElement("div");
-canvasWrap.className = "viz-canvas-wrap";
-const canvas = document.createElement("canvas");
-canvasWrap.appendChild(canvas);
-mount.appendChild(canvasWrap);
+// Animate panel bounds to fit measured content (two-div pattern)
+const panelCS = getComputedStyle(panel);
+const verticalPadding =
+  parseFloat(panelCS.paddingTop) + parseFloat(panelCS.paddingBottom);
 
-const ctx = canvas.getContext("2d");
-let cssW = 0;
-let cssH = 0;
-let dpr = window.devicePixelRatio || 1;
+const boundsObserver = new ResizeObserver((entries) => {
+  const h = entries[0].contentRect.height + verticalPadding;
+  panel.style.height = `${h}px`;
+});
+boundsObserver.observe(mount);
 
-function resize() {
-  dpr = window.devicePixelRatio || 1;
-  const rect = canvasWrap.getBoundingClientRect();
-  cssW = rect.width;
-  cssH = rect.height;
-  canvas.width = Math.floor(cssW * dpr);
-  canvas.height = Math.floor(cssH * dpr);
-  canvas.style.width = cssW + "px";
-  canvas.style.height = cssH + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+let currentVariant = -1;
+
+function showVariant(i) {
+  if (i === currentVariant) return;
+  currentVariant = i;
+  const v = VARIANTS[i];
+  headerTitle.textContent = v.name;
+  headerValue.textContent = v.counter != null ? `${v.counter}` : "";
+  bodyWrap.innerHTML = "";
+  v.render(bodyWrap);
 }
-
-const ro = new ResizeObserver(resize);
-ro.observe(canvasWrap);
-resize();
-
-// Seed particle positions to something onscreen so first transition feels smooth
-for (const p of particles) {
-  p.x = Math.random() * 600 + 50;
-  p.y = Math.random() * 180 + 40;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, cssW, cssH);
-  const gold = [196, 154, 58];
-  const goldAlt = [138, 182, 196];
-  for (const p of particles) {
-    const col = p.group === 1 && currentVariant === 5 ? goldAlt : gold;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${p.alpha})`;
-    ctx.fill();
-  }
-}
-
-function frame(t) {
-  if (cssW > 0 && cssH > 0) {
-    LAYOUTS[currentVariant](cssW, cssH, t);
-    updateParticles(t);
-    draw();
-  }
-  const latest = streamA.latest();
-  if (latest) headerValue.textContent = latest.value.toFixed(2);
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
 
 // ---------- Radial control ----------
 
-const VARIANTS = [
-  { label: "Inspect", sub: "hover a slice" },
-  { icon: Activity, name: "Line", sub: "streaming curve" },
-  { icon: Zap, name: "Momentum", sub: "velocity field" },
-  { icon: Target, name: "Reference", sub: "mean anchor" },
-  { icon: Clock, name: "Window", sub: "recent frame" },
-  { icon: Layers, name: "Depth", sub: "orderbook" },
-  { icon: Waves, name: "Multi", sub: "dual stream" },
-];
-
 const segmentsGroup = document.getElementById("segments");
 const indicator = document.getElementById("indicator");
-const indicatorGroup = document.getElementById("indicatorGroup");
 const centerLabel = document.getElementById("centerLabel");
 const centerSub = document.getElementById("centerSub");
 
@@ -359,19 +265,19 @@ function polar(cx, cy, r, angDeg) {
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 }
 
-function annularSector(cx, cy, rOuter, rInner, startDeg, endDeg) {
-  const [x1, y1] = polar(cx, cy, rOuter, startDeg);
-  const [x2, y2] = polar(cx, cy, rOuter, endDeg);
-  const [x3, y3] = polar(cx, cy, rInner, endDeg);
-  const [x4, y4] = polar(cx, cy, rInner, startDeg);
-  const large = endDeg - startDeg > 180 ? 1 : 0;
-  return `M ${x1} ${y1} A ${rOuter} ${rOuter} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${rInner} ${rInner} 0 ${large} 0 ${x4} ${y4} Z`;
+function annularSector(cx, cy, rO, rI, s, e) {
+  const [x1, y1] = polar(cx, cy, rO, s);
+  const [x2, y2] = polar(cx, cy, rO, e);
+  const [x3, y3] = polar(cx, cy, rI, e);
+  const [x4, y4] = polar(cx, cy, rI, s);
+  const large = e - s > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${rO} ${rO} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${rI} ${rI} 0 ${large} 0 ${x4} ${y4} Z`;
 }
 
-function arcPath(cx, cy, r, startDeg, endDeg) {
-  const [x1, y1] = polar(cx, cy, r, startDeg);
-  const [x2, y2] = polar(cx, cy, r, endDeg);
-  const large = endDeg - startDeg > 180 ? 1 : 0;
+function arcPath(cx, cy, r, s, e) {
+  const [x1, y1] = polar(cx, cy, r, s);
+  const [x2, y2] = polar(cx, cy, r, e);
+  const large = e - s > 180 ? 1 : 0;
   return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
 }
 
@@ -388,45 +294,33 @@ for (let i = 0; i < SEG_COUNT; i++) {
   const midDeg = (start + end) / 2;
   const rIcon = (R_OUTER + R_INNER) / 2;
   const [ix, iy] = polar(CX, CY, rIcon, midDeg);
-  const variant = VARIANTS[i + 1];
+  const v = VARIANTS[i];
 
   const fo = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
   fo.setAttribute("x", String(ix - 14));
   fo.setAttribute("y", String(iy - 14));
   fo.setAttribute("width", "28");
   fo.setAttribute("height", "28");
-  fo.setAttribute("class", "segment-icon-wrap");
   fo.style.pointerEvents = "none";
-  fo.innerHTML = iconToSvg(variant.icon, { size: 22, stroke: "rgba(230, 235, 237, 0.78)" });
+  fo.innerHTML = iconToSvg(v.icon, { size: 22, stroke: "rgba(230, 235, 237, 0.78)" });
   segmentsGroup.appendChild(fo);
 
-  path.addEventListener("mouseenter", () => activate(i + 1));
-  path.addEventListener("click", () => activate(i + 1));
+  path.addEventListener("mouseenter", () => activate(i));
+  path.addEventListener("click", () => activate(i));
 }
 
-function activate(variantIdx) {
-  currentVariant = variantIdx - 1;
-  const v = VARIANTS[variantIdx];
-
-  segmentsGroup.querySelectorAll(".segment").forEach((el) => {
-    el.classList.toggle("active", Number(el.dataset.index) === variantIdx - 1);
+function activate(i) {
+  const v = VARIANTS[i];
+  segmentsGroup.querySelectorAll(".segment").forEach((s) => {
+    s.classList.toggle("active", Number(s.dataset.index) === i);
   });
-
-  const i = variantIdx - 1;
   const start = i * SEG_DEG + GAP_DEG / 2;
   const end = (i + 1) * SEG_DEG - GAP_DEG / 2;
   indicator.setAttribute("d", arcPath(CX, CY, R_OUTER + 8, start, end));
   indicator.style.opacity = "1";
-
   centerLabel.textContent = v.name;
   centerSub.textContent = v.sub;
+  showVariant(i);
 }
 
-segmentsGroup.addEventListener("mouseleave", () => {
-  segmentsGroup.querySelectorAll(".segment").forEach((el) => el.classList.remove("active"));
-  indicator.style.opacity = "0";
-  centerLabel.textContent = VARIANTS[0].label;
-  centerSub.textContent = VARIANTS[0].sub;
-});
-
-activate(1);
+activate(0);
