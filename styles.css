@@ -58,6 +58,9 @@ body {
   overflow: hidden;
   box-sizing: border-box;
   justify-self: center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   transition:
     height 400ms cubic-bezier(0.19, 1, 0.22, 1) 50ms,
     width 400ms cubic-bezier(0.19, 1, 0.22, 1) 50ms;
@@ -67,6 +70,7 @@ body {
 .viz-host {
   display: block;
   width: max-content;
+  flex-shrink: 0;
 }
 
 .viz-header,
