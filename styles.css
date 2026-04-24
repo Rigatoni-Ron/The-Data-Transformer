@@ -37,7 +37,7 @@ body {
   justify-content: center;
   align-content: center;
   gap: 40px;
-  padding: 40px 48px 56px;
+  padding: 40px 48px 420px;
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -445,7 +445,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .radial-svg {
@@ -514,7 +517,7 @@ body {
 
 @media (max-width: 720px) {
   .stage {
-    padding: 24px 20px 32px;
+    padding: 24px 20px 340px;
   }
   .viz-panel {
     padding: 20px;
