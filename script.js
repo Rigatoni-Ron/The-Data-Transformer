@@ -226,11 +226,29 @@ mount.appendChild(bodyWrap);
 const panelCS = getComputedStyle(panel);
 const verticalPadding =
   parseFloat(panelCS.paddingTop) + parseFloat(panelCS.paddingBottom);
+const horizontalPadding =
+  parseFloat(panelCS.paddingLeft) + parseFloat(panelCS.paddingRight);
 
-const boundsObserver = new ResizeObserver((entries) => {
-  const h = entries[0].contentRect.height + verticalPadding;
-  panel.style.height = `${h}px`;
-});
+let boundsInitialized = false;
+function updateBounds() {
+  const r = mount.getBoundingClientRect();
+  const w = r.width + horizontalPadding;
+  const h = r.height + verticalPadding;
+  if (!boundsInitialized) {
+    panel.style.transition = "none";
+    panel.style.width = `${w}px`;
+    panel.style.height = `${h}px`;
+    requestAnimationFrame(() => {
+      panel.style.transition = "";
+      boundsInitialized = true;
+    });
+  } else {
+    panel.style.width = `${w}px`;
+    panel.style.height = `${h}px`;
+  }
+}
+
+const boundsObserver = new ResizeObserver(() => updateBounds());
 boundsObserver.observe(mount);
 
 let currentVariant = -1;
@@ -243,6 +261,7 @@ function showVariant(i) {
   headerValue.textContent = v.counter != null ? `${v.counter}` : "";
   bodyWrap.innerHTML = "";
   v.render(bodyWrap);
+  updateBounds();
 }
 
 // ---------- Radial control ----------
