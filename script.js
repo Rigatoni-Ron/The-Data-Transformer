@@ -198,7 +198,7 @@ function renderFavourites(body) {
 // ---------- Variants (clockwise from 12 o'clock) ----------
 
 const VARIANTS = [
-  { icon: Home, name: "Home", sub: "describe what you want", render: renderHome, counter: null },
+  { icon: Home, name: "Home", sub: "chat with agent", render: renderHome, counter: null },
   { icon: Search, name: "Explore", sub: "discover items", render: renderExplore, counter: null },
   { icon: Heart, name: "Favourites", sub: "saved for later", render: renderFavourites, counter: FAVOURITES.length },
   { icon: ShoppingCart, name: "Cart", sub: "ready to buy", render: renderCart, counter: CART.reduce((a, c) => a + c.qty, 0) },
